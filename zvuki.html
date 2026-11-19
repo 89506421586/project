@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Звуко-буквенный разбор слов (со звуком)</title>
+    <style>
+        :root {
+            --bg-color: #f0f7ff;
+            --card-bg: #ffffff;
+            --primary: #3b82f6;
+            --success: #22c55e;
+            --error: #ef4444;
+            --blue-sound: #2563eb;
+            --green-sound: #16a34a;
+            --red-sound: #dc2626;
+            --cell-size: 66px;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 12px;
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            color: #1e293b;
+            overflow-x: hidden;
+        }
+
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 4px 0 8px 0;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-align: center;
+            color: #1e3a8a;
+            margin: 0;
+        }
+
+        .sound-toggle {
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 2px solid #7dd3fc;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .sound-toggle.muted {
+            background: #f1f5f9;
+            color: #64748b;
+            border-color: #cbd5e1;
+        }
+
+        .subtitle {
+            font-size: 0.95rem;
+            color: #475569;
+            text-align: center;
+            max-width: 700px;
+            margin-bottom: 10px;
+        }
+
+        .score-counter {
+            font-weight: 700;
+            color: #1e40af;
+            background: #dbeafe;
+            padding: 5px 14px;
+            border-radius: 14px;
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+
+        .progress-bar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+            max-width: 760px;
+            margin-bottom: 14px;
+        }
+
+        .word-tab {
+            padding: 6px 11px;
+            border-radius: 16px;
+            background: #e2e8f0;
+            font-weight: 700;
+            font-size: 0.88rem;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .word-tab.active {
+            background: #dbeafe;
+            border-color: var(--primary);
+            color: #1d4ed8;
+        }
+
+        .word-tab.done {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .game-board {
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 740px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .picture-box {
+            font-size: 4.5rem;
+            line-height: 1;
+            margin-bottom: 14px;
+            background: #f8fafc;
+            padding: 12px 32px;
+            border-radius: 20px;
+            border: 2px dashed #cbd5e1;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .picture-hint {
+            font-size: 0.72rem;
+            color: #64748b;
+            text-align: center;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .word-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 22px;
+        }
+
+        .letters-row, .slots-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .letter-cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            border: 3px solid #64748b;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 800;
+            background: #f8fafc;
+            color: #0f172a;
+        }
+
+        .slot-cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            border: 3px dashed #94a3b8;
+            border-radius: 12px;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: background-color 0.15s, border-color 0.15s, transform 0.15s;
+        }
+
+        .slot-cell.highlight {
+            border-color: var(--primary);
+            background: #dbeafe;
+            transform: scale(1.04);
+        }
+
+        .slot-cell.shake-error {
+            animation: shake 0.4s ease;
+            border-color: var(--error);
+            background: #fee2e2;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-7px); }
+            40% { transform: translateX(7px); }
+            60% { transform: translateX(-5px); }
+            80% { transform: translateX(5px); }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.7); }
+            70% { transform: scale(1.08); }
+            100% { transform: scale(1); }
+        }
+
+        .palette-title {
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 10px;
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        .cards-palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+            padding: 14px;
+            background: #f8fafc;
+            border-radius: 18px;
+            border: 2px solid #e2e8f0;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+
+        .token-card {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: white;
+            border: 3px solid #cbd5e1;
+            border-radius: 14px;
+            cursor: grab;
+            touch-action: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.06);
+            transition: transform 0.15s, border-color 0.15s;
+        }
+
+        .token-card:active {
+            cursor: grabbing;
+        }
+
+        .drag-ghost {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            padding: 10px 16px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 3px solid var(--primary);
+            border-radius: 16px;
+            box-shadow: 0 12px 28px rgba(37, 99, 235, 0.35);
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+
+        .circle {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            box-shadow: inset 0 -3px 6px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        .circle.blue { background-color: var(--blue-sound); }
+        .circle.green { background-color: var(--green-sound); }
+        .circle.red { background-color: var(--red-sound); }
+
+        .card-label {
+            font-size: 0.74rem;
+            color: #64748b;
+            text-align: center;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .card-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .placed-token {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 26px;
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+            border: 3px solid #22c55e;
+            box-shadow: 0 3px 10px rgba(34, 197, 94, 0.2);
+            animation: popIn 0.25s ease-out;
+        }
+
+        .placed-token.double {
+            position: absolute;
+            left: 0;
+            width: calc(var(--cell-size) * 2 + 8px);
+            z-index: 5;
+            border-radius: 12px;
+        }
+
+        .placed-token.single {
+            border-radius: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            min-height: 46px;
+        }
+
+        button.action-btn {
+            padding: 11px 24px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-clear {
+            background-color: #e2e8f0;
+            color: #334155;
+        }
+
+        .btn-clear:hover { background-color: #cbd5e1; }
+
+        .btn-next {
+            background-color: var(--success);
+            color: white;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.35);
+            display: none;
+        }
+
+        .btn-next:hover { background-color: #16a34a; }
+
+        .message {
+            margin-top: 12px;
+            font-size: 1.12rem;
+            font-weight: 700;
+            min-height: 28px;
+            text-align: center;
+        }
+
+        .msg-success { color: #15803d; }
+        .msg-error { color: #dc2626; }
+
+        @media (max-width: 500px) {
+            :root { --cell-size: 54px; }
+            .circle { width: 28px; height: 28px; }
+            .placed-token { gap: 22px; }
+            .picture-box { font-size: 3.8rem; padding: 10px 26px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-row">
+        <h1>🧩 Звуко-буквенный разбор слов</h1>
+        <button class="sound-toggle" id="soundBtn" onclick="toggleSound()">🔊 Звук: ВКЛ</button>
+    </div>
+    <div class="subtitle">Тяни пальчиком (или мышкой) нужную карточку в пустые клеточки под буквами!</div>
+
+    <div class="score-counter" id="scoreCounter">Собрано слов: 0 из 16</div>
+    <div class="progress-bar" id="progressBar"></div>
+
+    <div class="game-board">
+        <div class="picture-box" id="pictureBox" onclick="speakCurrentWord()" title="Нажми, чтобы послушать слово">
+            <div id="wordEmoji">🦊</div>
+            <div class="picture-hint">🔊 Нажми, чтобы услышать слово</div>
+        </div>
+
+        <div class="word-grid">
+            <div class="letters-row" id="lettersRow"></div>
+            <div class="slots-row" id="slotsRow"></div>
+        </div>
+
+        <div class="palette-title">Перетащи карточку в нужные клеточки:</div>
+        <div class="cards-palette" id="palette"></div>
+
+        <div class="controls">
+            <button class="action-btn btn-clear" onclick="clearBoard()">Начать слово заново</button>
+            <button class="action-btn btn-next" id="nextBtn" onclick="nextWord()">Следующее слово ➔</button>
+        </div>
+
+        <div class="message" id="messageBox"></div>
+    </div>
+
+    <script>
+        const WORDS = [
+            { word: "ЛИСА", emoji: "🦊", solution: [{ start: 0, type: "GR" }, { start: 2, type: "BR" }] },
+            { word: "КИНО", emoji: "🎞️", solution: [{ start: 0, type: "GR" }, { start: 2, type: "BR" }] },
+            { word: "СТОЛ", emoji: "🪑", solution: [{ start: 0, type: "B" }, { start: 1, type: "BR" }, { start: 3, type: "B" }] },
+            { word: "РАКИ", emoji: "🦞", solution: [{ start: 0, type: "BR" }, { start: 2, type: "GR" }] },
+            { word: "РОСА", emoji: "🌿", solution: [{ start: 0, type: "BR" }, { start: 2, type: "BR" }] },
+            { word: "ЛИСТ", emoji: "🍃", solution: [{ start: 0, type: "GR" }, { start: 2, type: "B" }, { start: 3, type: "B" }] },
+            { word: "РОЗА", emoji: "🌹", solution: [{ start: 0, type: "BR" }, { start: 2, type: "BR" }] },
+            { word: "ВАЗА", emoji: "🏺", solution: [{ start: 0, type: "BR" }, { start: 2, type: "BR" }] },
+            { word: "НОС",  emoji: "👃", solution: [{ start: 0, type: "BR" }, { start: 2, type: "B" }] },
+            { word: "УСЫ",  emoji: "🥸", solution: [{ start: 0, type: "R" }, { start: 1, type: "BR" }] },
+            { word: "СОК",  emoji: "🧃", solution: [{ start: 0, type: "BR" }, { start: 2, type: "B" }] },
+            { word: "КОТ",  emoji: "🐈", solution: [{ start: 0, type: "BR" }, { start: 2, type: "B" }] },
+            { word: "КАША", emoji: "🥣", solution: [{ start: 0, type: "BR" }, { start: 2, type: "BR" }] },
+            { word: "РЫБА", emoji: "🐟", solution: [{ start: 0, type: "BR" }, { start: 2, type: "BR" }] },
+            { word: "ПОНИ", emoji: "🦄", solution: [{ start: 0, type: "BR" }, { start: 2, type: "GR" }] },
+            { word: "КАРП", emoji: "🐠", solution: [{ start: 0, type: "BR" }, { start: 2, type: "B" }, { start: 3, type: "B" }] }
+        ];
+
+        const CARD_TYPES = [
+            { id: "BR", label: "Слог (тв. + гл.)", span: 2, colors: ["blue", "red"] },
+            { id: "GR", label: "Слог (мягк. + гл.)", span: 2, colors: ["green", "red"] },
+            { id: "B",  label: "Твёрдый согл.", span: 1, colors: ["blue"] },
+            { id: "G",  label: "Мягкий согл.", span: 1, colors: ["green"] },
+            { id: "R",  label: "Гласный", span: 1, colors: ["red"] }
+        ];
+
+        let currentIndex = 0;
+        let placedItems = [];
+        let completedWords = new Set();
+        let soundEnabled = true;
+        let audioCtx = null;
+
+        // Переменные для перетаскивания (Pointer Events — работают и для пальца, и для мыши)
+        let draggingType = null;
+        let dragGhost = null;
+        let hoveredSlotIndex = null;
+
+        function ensureAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+            if (audioCtx && audioCtx.state === "suspended") {
+                audioCtx.resume();
+            }
+        }
+
+        function playTone(type) {
+            if (!soundEnabled) return;
+            ensureAudio();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+
+            if (type === "correct") {
+                // Весёлый звонкий перезвон (две ноты вверх)
+                const freqs = [523.25, 659.25]; // До5 -> Ми5
+                freqs.forEach((f, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = "sine";
+                    osc.frequency.setValueAtTime(f, now + idx * 0.11);
+                    gain.gain.setValueAtTime(0.001, now + idx * 0.11);
+                    gain.gain.exponentialRampToValueAtTime(0.28, now + idx * 0.11 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.11 + 0.35);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.11);
+                    osc.stop(now + idx * 0.11 + 0.36);
+                });
+            } else if (type === "wrong") {
+                // Мягкий низкий сигнал ошибки ("ой, не туда")
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = "triangle";
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.linearRampToValueAtTime(145, now + 0.28);
+                gain.gain.setValueAtTime(0.28, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.31);
+            } else if (type === "win") {
+                // Победная фанфара из 4 нот
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // До-Ми-Соль-До
+                notes.forEach((f, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = "triangle";
+                    osc.frequency.setValueAtTime(f, now + idx * 0.12);
+                    gain.gain.setValueAtTime(0.001, now + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.3, now + idx * 0.12 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.45);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.12);
+                    osc.stop(now + idx * 0.12 + 0.46);
+                });
+            }
+        }
+
+        function speakText(text) {
+            if (!soundEnabled || !("speechSynthesis" in window)) return;
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text.toLowerCase());
+            utter.lang = "ru-RU";
+            utter.rate = 0.9;
+            window.speechSynthesis.speak(utter);
+        }
+
+        function speakCurrentWord() {
+            ensureAudio();
+            speakText(WORDS[currentIndex].word);
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById("soundBtn");
+            if (soundEnabled) {
+                ensureAudio();
+                btn.textContent = "🔊 Звук: ВКЛ";
+                btn.classList.remove("muted");
+                playTone("correct");
+            } else {
+                btn.textContent = "🔇 Звук: ВЫКЛ";
+                btn.classList.add("muted");
+            }
+        }
+
+        function init() {
+            renderPalette();
+            loadWord(0, false);
+        }
+
+        function renderProgress() {
+            document.getElementById("scoreCounter").textContent = `Собрано слов: ${completedWords.size} из ${WORDS.length}`;
+            const bar = document.getElementById("progressBar");
+            bar.innerHTML = "";
+            WORDS.forEach((item, idx) => {
+                const tab = document.createElement("div");
+                tab.className = "word-tab" + 
+                    (idx === currentIndex ? " active" : "") + 
+                    (completedWords.has(idx) ? " done" : "");
+                tab.innerHTML = `${completedWords.has(idx) ? "⭐" : ""} ${item.word}`;
+                tab.onclick = () => loadWord(idx, true);
+                bar.appendChild(tab);
+            });
+        }
+
+        function renderPalette() {
+            const palette = document.getElementById("palette");
+            palette.innerHTML = "";
+            CARD_TYPES.forEach(card => {
+                const wrapper = document.createElement("div");
+                wrapper.className = "card-wrapper";
+
+                const el = document.createElement("div");
+                el.className = "token-card";
+                el.dataset.type = card.id;
+
+                card.colors.forEach(c => {
+                    const circle = document.createElement("div");
+                    circle.className = `circle ${c}`;
+                    el.appendChild(circle);
+                });
+
+                el.addEventListener("pointerdown", (e) => startDrag(e, card));
+
+                const lbl = document.createElement("div");
+                lbl.className = "card-label";
+                lbl.textContent = card.label;
+
+                wrapper.appendChild(el);
+                wrapper.appendChild(lbl);
+                palette.appendChild(wrapper);
+            });
+        }
+
+        function startDrag(e, card) {
+            e.preventDefault();
+            ensureAudio();
+            draggingType = card.id;
+
+            // Создаём летающую карточку под пальцем/курсором
+            dragGhost = document.createElement("div");
+            dragGhost.className = "drag-ghost";
+            card.colors.forEach(c => {
+                const circle = document.createElement("div");
+                circle.className = `circle ${c}`;
+                dragGhost.appendChild(circle);
+            });
+            document.body.appendChild(dragGhost);
+            moveGhost(e.clientX, e.clientY);
+
+            window.addEventListener("pointermove", onPointerMove);
+            window.addEventListener("pointerup", onPointerUp);
+            window.addEventListener("pointercancel", onPointerUp);
+        }
+
+        function moveGhost(x, y) {
+            if (!dragGhost) return;
+            dragGhost.style.left = x + "px";
+            dragGhost.style.top = y + "px";
+        }
+
+        function onPointerMove(e) {
+            if (!draggingType) return;
+            moveGhost(e.clientX, e.clientY);
+
+            // Определяем, над какой клеточкой сейчас находится палец
+            const slots = document.querySelectorAll(".slot-cell");
+            slots.forEach(s => s.classList.remove("highlight"));
+            hoveredSlotIndex = null;
+
+            const elemBelow = document.elementFromPoint(e.clientX, e.clientY);
+            if (elemBelow) {
+                const slotEl = elemBelow.closest(".slot-cell");
+                if (slotEl) {
+                    const idx = parseInt(slotEl.dataset.index, 10);
+                    hoveredSlotIndex = idx;
+                    const cardDef = CARD_TYPES.find(c => c.id === draggingType);
+                    for (let k = 0; k < cardDef.span; k++) {
+                        if (slots[idx + k]) {
+                            slots[idx + k].classList.add("highlight");
+                        }
+                    }
+                }
+            }
+        }
+
+        function onPointerUp(e) {
+            window.removeEventListener("pointermove", onPointerMove);
+            window.removeEventListener("pointerup", onPointerUp);
+            window.removeEventListener("pointercancel", onPointerUp);
+
+            document.querySelectorAll(".slot-cell").forEach(s => s.classList.remove("highlight"));
+
+            if (dragGhost) {
+                dragGhost.remove();
+                dragGhost = null;
+            }
+
+            if (draggingType !== null && hoveredSlotIndex !== null) {
+                tryPlaceCard(hoveredSlotIndex, draggingType);
+            }
+
+            draggingType = null;
+            hoveredSlotIndex = null;
+        }
+
+        function tryPlaceCard(slotIndex, typeId) {
+            const wordObj = WORDS[currentIndex];
+            const cardDef = CARD_TYPES.find(c => c.id === typeId);
+            if (!cardDef) return;
+
+            // Проверяем, не заняты ли уже эти клеточки
+            const newEnd = slotIndex + cardDef.span - 1;
+            const overlaps = placedItems.some(item => {
+                const itemEnd = item.start + item.span - 1;
+                return !(itemEnd < slotIndex || item.start > newEnd);
+            });
+
+            if (overlaps) {
+                playTone("wrong");
+                triggerSlotError(slotIndex, cardDef.span, "Эта клеточка уже занята!");
+                return;
+            }
+
+            // Проверяем по эталонной схеме слова: подходит ли эта карточка именно в это место
+            const isMatchingSolution = wordObj.solution.some(
+                part => part.start === slotIndex && part.type === typeId
+            );
+
+            if (isMatchingSolution) {
+                placedItems.push({
+                    start: slotIndex,
+                    type: typeId,
+                    span: cardDef.span
+                });
+                playTone("correct");
+                showMessage("✅ Правильно! Карточка встала на место.", "msg-success");
+                renderGrid();
+                checkWordCompletion();
+            } else {
+                // Неверная карточка — звучит сигнал ошибки, карточка не встаёт на место!
+                playTone("wrong");
+                triggerSlotError(slotIndex, cardDef.span, "❌ Не подходит! Подумай, какой здесь звук или слог.");
+            }
+        }
+
+        function triggerSlotError(startIndex, span, text) {
+            showMessage(text, "msg-error");
+            const slots = document.querySelectorAll(".slot-cell");
+            for (let k = 0; k < span; k++) {
+                const cell = slots[startIndex + k];
+                if (cell) {
+                    cell.classList.remove("shake-error");
+                    void cell.offsetWidth; // перезапуск анимации
+                    cell.classList.add("shake-error");
+                }
+            }
+        }
+
+        function checkWordCompletion() {
+            const wordObj = WORDS[currentIndex];
+            if (placedItems.length === wordObj.solution.length) {
+                completedWords.add(currentIndex);
+                renderProgress();
+                setTimeout(() => {
+                    playTone("win");
+                    speakText("Молодец! " + wordObj.word);
+                }, 250);
+
+                if (completedWords.size === WORDS.length) {
+                    showMessage("🏆 Ура! Все 16 слов собраны правильно! Ты молодец!", "msg-success");
+                } else {
+                    showMessage(`🎉 Отлично! Слово «${wordObj.word}» разобрано верно!`, "msg-success");
+                    if (currentIndex < WORDS.length - 1) {
+                        document.getElementById("nextBtn").style.display = "inline-block";
+                    }
+                }
+            }
+        }
+
+        function loadWord(idx, shouldSpeak) {
+            currentIndex = idx;
+            placedItems = [];
+            document.getElementById("nextBtn").style.display = "none";
+            showMessage("", "");
+
+            const wordObj = WORDS[idx];
+            document.getElementById("wordEmoji").textContent = wordObj.emoji;
+
+            renderProgress();
+            renderGrid();
+
+            if (shouldSpeak) {
+                speakText(wordObj.word);
+            }
+        }
+
+        function renderGrid() {
+            const wordStr = WORDS[currentIndex].word;
+            const lettersRow = document.getElementById("lettersRow");
+            const slotsRow = document.getElementById("slotsRow");
+
+            lettersRow.innerHTML = "";
+            slotsRow.innerHTML = "";
+
+            for (let i = 0; i < wordStr.length; i++) {
+                const lCell = document.createElement("div");
+                lCell.className = "letter-cell";
+                lCell.textContent = wordStr[i];
+                lettersRow.appendChild(lCell);
+
+                const sCell = document.createElement("div");
+                sCell.className = "slot-cell";
+                sCell.dataset.index = i;
+                slotsRow.appendChild(sCell);
+            }
+
+            const slotCells = slotsRow.children;
+            placedItems.forEach((item) => {
+                const cardDef = CARD_TYPES.find(c => c.id === item.type);
+                const startCell = slotCells[item.start];
+
+                const tokenEl = document.createElement("div");
+                tokenEl.className = "placed-token " + (cardDef.span === 2 ? "double" : "single");
+
+                cardDef.colors.forEach(c => {
+                    const circle = document.createElement("div");
+                    circle.className = `circle ${c}`;
+                    tokenEl.appendChild(circle);
+                });
+
+                startCell.appendChild(tokenEl);
+            });
+        }
+
+        function clearBoard() {
+            placedItems = [];
+            showMessage("", "");
+            document.getElementById("nextBtn").style.display = "none";
+            renderGrid();
+        }
+
+        function nextWord() {
+            if (currentIndex < WORDS.length - 1) {
+                loadWord(currentIndex + 1, true);
+            }
+        }
+
+        function showMessage(text, className) {
+            const box = document.getElementById("messageBox");
+            box.textContent = text;
+            box.className = "message " + className;
+        }
+
+        init();
+    </script>
+</body>
+</html>
